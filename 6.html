@@ -67,7 +67,7 @@
         }
         .image-container img {
             display: block;
-            width: 80%; /* Full width images */
+            width: 90%; /* Full width images */
             height: auto; /* Maintains aspect ratio */
             border-radius: 10px 10px 0 0;
             margin: 0 auto; /* Auto margins for horizontal centering */
@@ -91,15 +91,20 @@
     </div>
 
     <script>
-        firebase.initializeApp({
+        // Firebase configuration
+        var firebaseConfig = {
             apiKey: "AIzaSyDCVosfhIQ7T01okMdLLyQmMUvzsl1oz4Q",
-  authDomain: "eg-1-testing-annotated-box.firebaseapp.com",
-  projectId: "eg-1-testing-annotated-box",
-  storageBucket: "eg-1-testing-annotated-box.appspot.com",
-  messagingSenderId: "689581761042",
-  appId: "1:689581761042:web:fd5112b30f705162482ecb",
-  measurementId: "G-MY37ZV9W4B"
-        });
+            authDomain: "eg-1-testing-annotated-box.firebaseapp.com",
+            databaseURL: "https://eg-1-testing-annotated-box-default-rtdb.firebaseio.com",
+            projectId: "eg-1-testing-annotated-box",
+            storageBucket: "eg-1-testing-annotated-box.appspot.com",
+            messagingSenderId: "689581761042",
+            appId: "1:689581761042:web:fd5112b30f705162482ecb",
+            measurementId: "G-MY37ZV9W4B"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
         function getCookie(name) {
