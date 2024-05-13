@@ -48,10 +48,12 @@
             margin-bottom: 20px;
         }
         #questionContainer label {
-            display: block;
+            display: inline-block;
             margin-top: 10px;
             cursor: pointer;
             transition: transform 0.3s ease;
+            width: 50%; /* Adjust the width as needed */
+            box-sizing: border-box;
         }
         #questionContainer label:hover {
             transform: scale(1.05);
@@ -59,10 +61,16 @@
         input[type="radio"] {
             margin-right: 10px;
         }
-        textarea {
-            width: 100%;
-            height: 100px;
-            margin-top: 10px;
+        .image-container {
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+        }
+        .image-container img {
+            display: block;
+            width: 90%; /* Full width images */
+            height: auto; /* Maintains aspect ratio */
+            border-radius: 10px 10px 0 0;
+            margin: 0 auto; /* Auto margins for horizontal centering */
         }
     </style>
 </head>
@@ -77,19 +85,40 @@
     </div>
 
     <script>
-        // Initialize Firebase
-        firebase.initializeApp({
+        // Firebase configuration
+        var firebaseConfig = {
             apiKey: "AIzaSyDCVosfhIQ7T01okMdLLyQmMUvzsl1oz4Q",
             authDomain: "eg-1-testing-annotated-box.firebaseapp.com",
-            databaseURL: "https://eg-1-testing-annotated-box.firebaseio.com",
+            databaseURL: "https://eg-1-testing-annotated-box-default-rtdb.firebaseio.com",
             projectId: "eg-1-testing-annotated-box",
             storageBucket: "eg-1-testing-annotated-box.appspot.com",
             messagingSenderId: "689581761042",
             appId: "1:689581761042:web:fd5112b30f705162482ecb",
             measurementId: "G-MY37ZV9W4B"
-        });
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        function getCookie(name) {
+            let cookieArray = document.cookie.split(';');
+            for (let i = 0; i < cookieArray.length; i++) {
+                let cookiePair = cookieArray[i].split('=');
+                if (name == cookiePair[0].trim()) {
+                    return cookiePair[1];
+                }
+            }
+            return null;
+        }
+
+        let userId = getCookie('userId');
+        if (!userId) {
+            userId = 'user_' + Date.now();
+            document.cookie = "userId=" + userId + "; path=/";
+        }
+
+        let startTime = Date.now();
         let currentQuestionIndex = 0;
         const questions = [
             { question: "What is your current education level?", options: ["High School", "Associate Degree", "Bachelor's Degree", "Master's Degree", "Doctorate or Higher", "Other"], type: "radio" },
@@ -99,63 +128,77 @@
             { question: "On average, how many data visualization charts do you see daily?", options: ["0-1", "2-5", "6-10", "More than 10"], type: "radio" },
             { question: "How beneficial are the explanations in the user experiment for learning data visualization?", options: ["Not beneficial", "Slightly beneficial", "Moderately beneficial", "Very beneficial", "Extremely beneficial"], type: "radio" },
             { question: "How engaging are the explanations?", options: ["Not engaging", "Slightly engaging", "Moderately engaging", "Very engaging", "Extremely engaging"], type: "radio" },
-            { question: "What are the strengths of the explanations?", type: "textarea" },
-            { question: "What are the weaknesses of the explanations?", type: "textarea" },
-            { question: "The sequence of explanations on different topics felt natural.", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"], type: "radio" },
+            { question: "What are the strengths of the explanations?", options: [], type: "textarea" },
+            { question: "What are the weaknesses of the explanations?", options: [], type: "textarea" },
+            { question: "The sequence of explanations on different topics felt natural.", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"], type: "radio" }, 
             { question: "The annotations help in learning data visualization.", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"], type: "radio" },
             { question: "The annotations are highly engaging.", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"], type: "radio" },
             { question: "The annotations were distracting during the learning process.", options: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"], type: "radio" },
-            { question: "What are the strengths of the annotations?", type: "textarea" },
-            { question: "What are the weaknesses of the annotations?", type: "textarea" }
+            { question: "What are the strengths of the annotations?", options: [], type: "textarea" },
+            { question: "What are the weaknesses of the annotations?", options: [], type: "textarea" }
         ];
 
-        function loadQuestion() {
-            const questionContainer = document.getElementById('questionContainer');
-            if (currentQuestionIndex >= questions.length) {
-                finalizeSurvey();
-                return;
-            }
-            const question = questions[currentQuestionIndex];
-            let questionHtml = `<p>${question.question}</p>`;
-            if (question.options) {
-                question.options.forEach((option, index) => {
-                    questionHtml += `<input type="radio" id="option${index}" name="answer" value="${option}">
-                                    <label for="option${index}">${option}</label><br>`;
-                });
-            } else {
-                questionHtml += `<textarea id="option0" name="answer"></textarea>`;
-            }
-            questionContainer.innerHTML = questionHtml;
-        }
-
         function handleNextClick() {
-            const selectedAnswer = document.querySelector('input[name="answer"]:checked')?.value || document.querySelector('textarea[name="answer"]').value.trim();
-            if (!selectedAnswer) {
-                alert('Please make a selection or fill in the text area before proceeding.');
-                return;
+            if (currentQuestionIndex > 0) {
+                let selectedAnswer;
+                if (questions[currentQuestionIndex - 1].type === 'radio') {
+                    selectedAnswer = document.querySelector('input[name="answer"]:checked')?.value;
+                    if (!selectedAnswer) {
+                        alert('Please make a selection before proceeding.');
+                        return;
+                    }
+                } else {
+                    selectedAnswer = document.querySelector('textarea[name="answer"]')?.value;
+                    if (!selectedAnswer) {
+                        alert('Please provide an answer before proceeding.');
+                        return;
+                    }
+                }
+                submitResponse(selectedAnswer);
+            } else {
+                loadNextQuestion();
             }
-            submitResponse(questions[currentQuestionIndex].question, selectedAnswer);
-            currentQuestionIndex++;
-            loadQuestion();
         }
 
-        function submitResponse(question, answer) {
+        function submitResponse(selectedAnswer) {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            const question = questions[currentQuestionIndex - 1];
             database.ref('responses/' + userId).push({
-                question: question,
-                answer: answer,
+                question: question.question,
+                answer: selectedAnswer,
+                timeSpent: timeSpent,
                 timestamp: new Date().toISOString()
             }).then(() => {
                 console.log('Response saved successfully.');
+                if (currentQuestionIndex < questions.length) {
+                    loadNextQuestion();
+                } else {
+                    window.location.href = 'thanku.html';
+                }
             }).catch(error => {
                 alert('Error saving response: ' + error.message);
             });
         }
 
-        function finalizeSurvey() {
-            window.location.href = 'thankyou.html';
+        function loadNextQuestion() {
+            const questionContainer = document.getElementById('questionContainer');
+            const question = questions[currentQuestionIndex];
+            let questionHtml = `<p>${question.question}</p>`;
+            if (question.type === 'radio') {
+                question.options.forEach((option, index) => {
+                    questionHtml += `<input type="radio" id="option${index}" name="answer" value="${option}">
+                                    <label for="option${index}">${option}</label><br>`;
+                });
+            } else if (question.type === 'textarea') {
+                questionHtml += `<textarea name="answer" rows="4" cols="50" placeholder="Type your answer here..."></textarea>`;
+            }
+            questionContainer.innerHTML = questionHtml;
+            currentQuestionIndex++;
         }
 
-        document.addEventListener('DOMContentLoaded', loadQuestion); // Load the first question when the DOM is fully loaded
+        // Load the first question on page load
+        window.onload = loadNextQuestion;
     </script>
 </body>
 </html>
