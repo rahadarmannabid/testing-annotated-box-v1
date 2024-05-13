@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demographics Survey</title>
+    <title>Next Page Survey</title>
     <script src="https://www.gstatic.com/firebasejs/8.2.3/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.2.3/firebase-database.js"></script>
     <style>
@@ -48,48 +48,78 @@
             margin-bottom: 20px;
         }
         #questionContainer label {
-            display: block;
+            display: inline-block;
             margin-top: 10px;
             cursor: pointer;
             transition: transform 0.3s ease;
+            width: 50%; /* Adjust the width as needed */
+            box-sizing: border-box;
         }
         #questionContainer label:hover {
             transform: scale(1.05);
         }
-        input[type="radio"], input[type="checkbox"] {
+        input[type="radio"] {
             margin-right: 10px;
         }
-        textarea {
-            width: 100%;
-            height: 100px;
-            margin-top: 10px;
+        .image-container {
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+        }
+        .image-container img {
+            display: block;
+            width: 90%; /* Full width images */
+            height: auto; /* Maintains aspect ratio */
+            border-radius: 10px 10px 0 0;
+            margin: 0 auto; /* Auto margins for horizontal centering */
         }
     </style>
 </head>
 <body>
     <div class="container">
         <form id="nextSurveyForm">
-            <div id="questionContainer">
-                <!-- Question content dynamically inserted here -->
-            </div>
+            <div id="questionContainer"></div>
             <div style="text-align: center;">
-                <button type="button" id="nextButton" onclick="handleNextClick()">Next</button>
+                <button type="button" onclick="handleNextClick()">Next</button>
             </div>
         </form>
     </div>
 
     <script>
-        firebase.initializeApp({
+        // Firebase configuration
+        var firebaseConfig = {
             apiKey: "AIzaSyDCVosfhIQ7T01okMdLLyQmMUvzsl1oz4Q",
-  authDomain: "eg-1-testing-annotated-box.firebaseapp.com",
-  projectId: "eg-1-testing-annotated-box",
-  storageBucket: "eg-1-testing-annotated-box.appspot.com",
-  messagingSenderId: "689581761042",
-  appId: "1:689581761042:web:fd5112b30f705162482ecb",
-  measurementId: "G-MY37ZV9W4B"
-        });
+            authDomain: "eg-1-testing-annotated-box.firebaseapp.com",
+            databaseURL: "https://eg-1-testing-annotated-box-default-rtdb.firebaseio.com",
+            projectId: "eg-1-testing-annotated-box",
+            storageBucket: "eg-1-testing-annotated-box.appspot.com",
+            messagingSenderId: "689581761042",
+            appId: "1:689581761042:web:fd5112b30f705162482ecb",
+            measurementId: "G-MY37ZV9W4B"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        function getCookie(name) {
+            let cookieArray = document.cookie.split(';');
+            for (let i = 0; i < cookieArray.length; i++) {
+                let cookiePair = cookieArray[i].split('=');
+                if (name == cookiePair[0].trim()) {
+                    return cookiePair[1];
+                }
+            }
+            return null;
+        }
+
+        let userId = getCookie('userId');
+        if (!userId) {
+            userId = 'user_' + Date.now();
+            document.cookie = "userId=" + userId + "; path=/";
+        }
+
+        let startTime = Date.now();
+        let currentQuestionIndex = 0;
         const questions = [
             { question: "What is your current education level?", options: ["High School", "Associate Degree", "Bachelor's Degree", "Master's Degree", "Doctorate or Higher", "Other"], type: "radio" },
             { question: "What is your level of expertise in interpreting these data visualizations?", options: ["Beginner", "Intermediate", "Advanced", "Expert"], type: "radio" },
@@ -108,65 +138,67 @@
             { question: "What are the weaknesses of the annotations?", options: [], type: "textarea" }
         ];
 
-        let currentQuestionIndex = 0;
+        function handleNextClick() {
+            if (currentQuestionIndex > 0) {
+                let selectedAnswer;
+                if (questions[currentQuestionIndex - 1].type === 'radio') {
+                    selectedAnswer = document.querySelector('input[name="answer"]:checked')?.value;
+                    if (!selectedAnswer) {
+                        alert('Please make a selection before proceeding.');
+                        return;
+                    }
+                } else {
+                    selectedAnswer = document.querySelector('textarea[name="answer"]')?.value;
+                    if (!selectedAnswer) {
+                        alert('Please provide an answer before proceeding.');
+                        return;
+                    }
+                }
+                submitResponse(selectedAnswer);
+            } else {
+                loadNextQuestion();
+            }
+        }
 
-function loadQuestion() {
-    const questionContainer = document.getElementById('questionContainer');
-    const question = questions[currentQuestionIndex];
-    let contentHtml = `<h3>${question.question}</h3>`;
+        function submitResponse(selectedAnswer) {
+            const endTime = Date.now();
+            const timeSpent = (endTime - startTime) / 1000;
+            const question = questions[currentQuestionIndex - 1];
+            database.ref('responses/' + userId).push({
+                question: question.question,
+                answer: selectedAnswer,
+                timeSpent: timeSpent,
+                timestamp: new Date().toISOString()
+            }).then(() => {
+                console.log('Response saved successfully.');
+                if (currentQuestionIndex < questions.length) {
+                    loadNextQuestion();
+                } else {
+                    window.location.href = 'thanku.html';
+                }
+            }).catch(error => {
+                alert('Error saving response: ' + error.message);
+            });
+        }
 
-    if(question.type === "textarea") {
-        contentHtml += `<textarea name="answer"></textarea>`;
-    } else {
-        question.options.forEach((option, index) => {
-            contentHtml += `<label><input type="${question.type}" name="answer" value="${option}">${option}</label>`;
-        });
-    }
+        function loadNextQuestion() {
+            const questionContainer = document.getElementById('questionContainer');
+            const question = questions[currentQuestionIndex];
+            let questionHtml = `<p>${question.question}</p>`;
+            if (question.type === 'radio') {
+                question.options.forEach((option, index) => {
+                    questionHtml += `<input type="radio" id="option${index}" name="answer" value="${option}">
+                                    <label for="option${index}">${option}</label><br>`;
+                });
+            } else if (question.type === 'textarea') {
+                questionHtml += `<textarea name="answer" rows="4" cols="50" placeholder="Type your answer here..."></textarea>`;
+            }
+            questionContainer.innerHTML = questionHtml;
+            currentQuestionIndex++;
+        }
 
-    questionContainer.innerHTML = contentHtml;
-}
-
-function handleNextClick() {
-    // This variable will check if an answer has been provided
-    let selectedAnswer;
-
-    // Check if the current question is a textarea or a radio input
-    if (questions[currentQuestionIndex].type === "textarea") {
-        selectedAnswer = document.querySelector('[name="answer"]').value.trim(); // Check textarea input
-    } else {
-        selectedAnswer = document.querySelector('[name="answer"]:checked')?.value; // Check radio input
-    }
-
-    // Ensure an answer has been provided before allowing user to proceed
-    if (!selectedAnswer) {
-        alert('Please answer the question before proceeding.');
-        return;
-    }
-
-    // Submit the response
-    submitResponse(selectedAnswer);
-
-    // Move to the next question or finalize the survey
-    currentQuestionIndex++;
-    if (currentQuestionIndex < questions.length) {
-        loadQuestion();
-    } else {
-        document.getElementById('nextButton').innerText = 'Finish';
-        document.getElementById('nextButton').onclick = finalizeSurvey;
-    }
-}
-
-
-function submitResponse(answer) {
-    console.log(`Question: ${questions[currentQuestionIndex].question}, Answer: ${answer}`);
-    // Here you can submit the response to Firebase
-}
-
-function finalizeSurvey() {
-    window.location.href = 'thanku.html'; // Redirect to thank you page
-}
-
-loadQuestion(); // Initial call to load the first question
+        // Load the first question on page load
+        window.onload = loadNextQuestion;
     </script>
 </body>
 </html>
